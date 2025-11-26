@@ -44,7 +44,12 @@ class ExoPlayerController(context: Context) : PlayerController {
     }
 
     override fun prepare(config: StreamConfig) {
-        player.setMediaItem(MediaItem.fromUri(config.url))
+        val liveConfiguration = MediaItem.LiveConfiguration.Builder().setMaxPlaybackSpeed(1.05f) // sweet spot
+            .setMinPlaybackSpeed(0.95f).build()
+        val mediaItem =
+            MediaItem.Builder().setUri(config.url).setLiveConfiguration(liveConfiguration).build()
+
+        player.setMediaItem(mediaItem)
         player.prepare()
     }
 
