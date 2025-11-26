@@ -5,6 +5,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
 object ExoPlayerFactory {
     @OptIn(UnstableApi::class)
@@ -16,6 +17,8 @@ object ExoPlayerFactory {
         val maxBufferMs = if (lowLatency) 2000 else 5000
         val bufferForPlaybackMs = if (lowLatency) 500 else 2500
         val bufferForRebufferMs = if (lowLatency) 1000 else 5000
+        val trackSelector = DefaultTrackSelector(context)
+        trackSelector.buildUponParameters().setMaxVideoSizeSd().setForceLowestBitrate(false).build()
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -25,6 +28,8 @@ object ExoPlayerFactory {
                 bufferForRebufferMs,
             )
             .build()
-        return ExoPlayer.Builder(context).setLoadControl(loadControl).build()
+        return ExoPlayer.Builder(context).setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
+            .build()
     }
 }
