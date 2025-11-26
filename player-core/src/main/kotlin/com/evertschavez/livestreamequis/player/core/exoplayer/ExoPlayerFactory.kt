@@ -5,6 +5,8 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.ads.AdsLoader
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
 object ExoPlayerFactory {
@@ -12,6 +14,7 @@ object ExoPlayerFactory {
     fun create(
         context: Context,
         lowLatency: Boolean,
+        adsLoaderProvider: AdsLoader.Provider? = null,
     ): ExoPlayer {
         val minBufferMs = if (lowLatency) 1000 else 5000
         val maxBufferMs = if (lowLatency) 2000 else 5000
@@ -28,8 +31,17 @@ object ExoPlayerFactory {
                 bufferForRebufferMs,
             )
             .build()
-        return ExoPlayer.Builder(context).setLoadControl(loadControl)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setLocalAdInsertionComponents(
+                { adsLoaderProvider?.getAdsLoader(it) },
+                /* adViewProvider= */ { null }
+            )
+
+        return ExoPlayer.Builder(context)
+            .setLoadControl(loadControl)
             .setTrackSelector(trackSelector)
+            .setMediaSourceFactory(mediaSourceFactory)
             .build()
     }
 }

@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Kotlin
+.kotlin
+
+# Memory dumps
+*.hprof

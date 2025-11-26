@@ -6,6 +6,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ima.ImaAdsLoader
 import com.evertschavez.livestreamequis.player.core.exoplayer.ExoPlayerFactory
 import com.evertschavez.livestreamequis.player.core.metrics.PlayerMetricsTracker
 import com.evertschavez.livestreamequis.player.domain.controller.PlayerController
@@ -14,10 +15,16 @@ import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import androidx.core.net.toUri
 
 @UnstableApi
 class ExoPlayerController(context: Context) : PlayerController {
-    private val player: ExoPlayer = ExoPlayerFactory.create(context = context, lowLatency = true)
+    private val adsLoader = ImaAdsLoader.Builder(context).build()
+    private val player: ExoPlayer = ExoPlayerFactory.create(
+        context = context,
+        lowLatency = true,
+        adsLoaderProvider = { adsLoader },
+    )
     private val metricsTracker = PlayerMetricsTracker(player)
     private val _state = MutableStateFlow<PlayerState>(PlayerState.Idle)
 
@@ -46,13 +53,22 @@ class ExoPlayerController(context: Context) : PlayerController {
     }
 
     override fun prepare(config: StreamConfig) {
-        val liveConfiguration = MediaItem.LiveConfiguration.Builder().setMaxPlaybackSpeed(1.05f) // sweet spot
-            .setMinPlaybackSpeed(0.95f).build()
-        val mediaItem =
-            MediaItem.Builder().setUri(config.url).setLiveConfiguration(liveConfiguration).build()
+        val liveConfiguration =
+            MediaItem.LiveConfiguration.Builder().setMaxPlaybackSpeed(1.05f) // sweet spot
+                .setMinPlaybackSpeed(0.95f).build()
+        val mediaItemBuilder = MediaItem.Builder()
+            .setUri(config.url)
+            .setLiveConfiguration(liveConfiguration)
 
         metricsTracker.onLoadStarted()
-        player.setMediaItem(mediaItem)
+
+        config.adTagUrl?.let {
+            mediaItemBuilder.setAdsConfiguration(
+                MediaItem.AdsConfiguration.Builder(it.toUri()).build()
+            )
+        }
+
+        player.setMediaItem(mediaItemBuilder.build())
         player.prepare()
     }
 
@@ -66,6 +82,7 @@ class ExoPlayerController(context: Context) : PlayerController {
 
     override fun release() {
         player.release()
+        adsLoader.release()
     }
 
     fun getPlayer(): Player = player
