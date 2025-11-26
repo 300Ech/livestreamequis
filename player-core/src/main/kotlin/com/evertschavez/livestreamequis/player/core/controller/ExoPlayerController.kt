@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.evertschavez.livestreamequis.player.core.exoplayer.ExoPlayerFactory
 import com.evertschavez.livestreamequis.player.core.metrics.PlayerMetricsTracker
@@ -14,6 +15,7 @@ import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+@UnstableApi
 class ExoPlayerController(context: Context) : PlayerController {
     private val player: ExoPlayer = ExoPlayerFactory.create(context = context, lowLatency = true)
     private val metricsTracker = PlayerMetricsTracker(player)
@@ -49,6 +51,7 @@ class ExoPlayerController(context: Context) : PlayerController {
         val mediaItem =
             MediaItem.Builder().setUri(config.url).setLiveConfiguration(liveConfiguration).build()
 
+        metricsTracker.onLoadStarted()
         player.setMediaItem(mediaItem)
         player.prepare()
     }
