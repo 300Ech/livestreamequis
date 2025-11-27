@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.PlayerView
+import androidx.mediarouter.app.MediaRouteButton
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
+import com.google.android.gms.cast.framework.CastButtonFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,8 +47,9 @@ fun PlayerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text("LiveStreamEquis Player")
+                title = { Text("LiveStreamEquis Player") },
+                actions = {
+                    CastButton(modifier = Modifier.padding(end = 16.dp))
                 }
             )
         }
@@ -141,4 +144,16 @@ fun PlaybackControlButton(
     ) {
         Text(text)
     }
+}
+
+@Composable
+fun CastButton(modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            MediaRouteButton(context).apply {
+                CastButtonFactory.setUpMediaRouteButton(context, this)
+            }
+        }
+    )
 }

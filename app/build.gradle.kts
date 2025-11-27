@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.cast)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
