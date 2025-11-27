@@ -23,19 +23,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import androidx.mediarouter.app.MediaRouteButton
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.google.android.gms.cast.framework.CastButtonFactory
+import org.koin.androidx.compose.koinViewModel
 
+@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     url: String,
     adTag: String?,
-    viewModel: PlayerViewModel = viewModel()
+    viewModel: PlayerViewModel = koinViewModel()
 ) {
     val state by viewModel.playerState.collectAsState()
     val metrics by viewModel.metrics.collectAsState()

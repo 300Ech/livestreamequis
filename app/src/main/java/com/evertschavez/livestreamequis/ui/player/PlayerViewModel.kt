@@ -1,18 +1,17 @@
 package com.evertschavez.livestreamequis.ui.player
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.evertschavez.livestreamequis.player.core.controller.ExoPlayerController
+import androidx.media3.common.util.UnstableApi
+import com.evertschavez.livestreamequis.player.core.controller.VideoPlayerController
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class PlayerViewModel(application: Application) : AndroidViewModel(application = application) {
-    private val controller = ExoPlayerController(application.applicationContext)
-
+@UnstableApi
+class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel() {
     val player = controller.getPlayer()
     val metrics: StateFlow<PlaybackMetrics> = controller.metrics
 

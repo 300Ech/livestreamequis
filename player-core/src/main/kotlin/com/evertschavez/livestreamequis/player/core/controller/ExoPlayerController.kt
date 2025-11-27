@@ -24,7 +24,7 @@ import com.mux.stats.sdk.core.model.CustomerData
 import com.mux.stats.sdk.muxstats.monitorWithMuxData
 
 @UnstableApi
-class ExoPlayerController(private val context: Context) : PlayerController {
+class ExoPlayerController(private val context: Context) : VideoPlayerController {
     private val adsLoader = ImaAdsLoader.Builder(context).build()
     private var muxStats: MuxStatsSdkMedia3<ExoPlayer>? = null
     private val player: ExoPlayer = ExoPlayerFactory.create(
@@ -96,7 +96,7 @@ class ExoPlayerController(private val context: Context) : PlayerController {
         adsLoader.release()
     }
 
-    fun getPlayer(): Player = player
+    override fun getPlayer(): Player = player
 
     private fun recoverIfBehindLiveWindow(error: PlaybackException) {
         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
