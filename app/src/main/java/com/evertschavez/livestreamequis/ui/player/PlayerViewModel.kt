@@ -18,10 +18,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application =
 
     val playerState: StateFlow<PlayerState> = controller.state
 
-    fun startPlayback() {
+    fun startPlayback(url: String, adTag: String?) {
         viewModelScope.launch {
             controller.prepare(
-                StreamConfig(url = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")
+                StreamConfig(url = url, adTagUrl = adTag)
             )
             controller.play()
         }

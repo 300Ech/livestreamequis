@@ -13,13 +13,20 @@ import com.evertschavez.livestreamequis.player.domain.controller.PlayerControlle
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
+import com.mux.stats.sdk.muxstats.MuxStatsSdkMedia3
+import com.mux.stats.sdk.core.model.CustomerPlayerData
+import com.mux.stats.sdk.core.model.CustomerVideoData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import androidx.core.net.toUri
+import com.evertschavez.livestreamequis.player.core.BuildConfig
+import com.mux.stats.sdk.core.model.CustomerData
+import com.mux.stats.sdk.muxstats.monitorWithMuxData
 
 @UnstableApi
-class ExoPlayerController(context: Context) : PlayerController {
+class ExoPlayerController(private val context: Context) : PlayerController {
     private val adsLoader = ImaAdsLoader.Builder(context).build()
+    private var muxStats: MuxStatsSdkMedia3<ExoPlayer>? = null
     private val player: ExoPlayer = ExoPlayerFactory.create(
         context = context,
         lowLatency = true,
@@ -35,18 +42,19 @@ class ExoPlayerController(context: Context) : PlayerController {
         get() = metricsTracker.metrics
 
     init {
+        adsLoader.setPlayer(player)
         player.addAnalyticsListener(metricsTracker)
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
-                _state.value = when (playbackState) {
-                    Player.STATE_BUFFERING -> PlayerState.Buffering
-                    Player.STATE_READY -> PlayerState.Playing
-                    else -> PlayerState.Idle
-                }
+                updateState()
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                updateState()
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                _state.value = PlayerState.Error(message = error.message ?: "Unknown error")
+                _state.value = PlayerState.Error(message = error.message ?: "Error")
                 recoverIfBehindLiveWindow(error)
             }
         })
@@ -68,6 +76,8 @@ class ExoPlayerController(context: Context) : PlayerController {
             )
         }
 
+        monitor()
+
         player.setMediaItem(mediaItemBuilder.build())
         player.prepare()
     }
@@ -81,6 +91,7 @@ class ExoPlayerController(context: Context) : PlayerController {
     }
 
     override fun release() {
+        muxStats?.release()
         player.release()
         adsLoader.release()
     }
@@ -91,6 +102,30 @@ class ExoPlayerController(context: Context) : PlayerController {
         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
             player.seekToDefaultPosition()
             player.prepare()
+        }
+    }
+
+    fun monitor() {
+        val customerPlayerData = CustomerPlayerData().apply {
+            environmentKey = BuildConfig.MUX_ENV_KEY
+        }
+        val customerVideoData = CustomerVideoData().apply {
+            videoTitle = "My Live Stream"
+        }
+        val customerData = CustomerData(customerPlayerData, customerVideoData, null)
+        muxStats = player.monitorWithMuxData(
+            context = context,
+            envKey = BuildConfig.MUX_ENV_KEY,
+            customerData = customerData
+        )
+    }
+
+    private fun updateState() {
+        _state.value = when {
+            player.playbackState == Player.STATE_BUFFERING -> PlayerState.Buffering
+            player.isPlaying -> PlayerState.Playing
+            player.playbackState == Player.STATE_READY -> PlayerState.Paused // Está listo pero no "playing"
+            else -> PlayerState.Idle
         }
     }
 }

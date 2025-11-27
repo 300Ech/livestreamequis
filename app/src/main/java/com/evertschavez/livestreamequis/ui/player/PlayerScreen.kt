@@ -30,12 +30,16 @@ import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
+fun PlayerScreen(
+    url: String,
+    adTag: String?,
+    viewModel: PlayerViewModel = viewModel()
+) {
     val state by viewModel.playerState.collectAsState()
     val metrics by viewModel.metrics.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.startPlayback()
+        viewModel.startPlayback(url, adTag)
     }
 
     Scaffold(
@@ -81,7 +85,13 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
 
             PlaybackControlButton(
                 state = state,
-                onPlay = { viewModel.startPlayback() },
+                onPlay = {
+                    if (state == PlayerState.Paused) {
+                        viewModel.resumePlayback()
+                    } else {
+                        viewModel.startPlayback(url, adTag)
+                    }
+                },
                 onPause = { viewModel.pausePlayback() }
             )
         }
