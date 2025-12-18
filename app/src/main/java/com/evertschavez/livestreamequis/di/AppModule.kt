@@ -10,7 +10,7 @@ import org.koin.dsl.module
 
 @SuppressLint("UnsafeOptInUsageError")
 val appModule = module {
-    single<VideoPlayerController> {
+    factory<VideoPlayerController> {
         ExoPlayerController(androidContext())
     }
 

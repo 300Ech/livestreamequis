@@ -23,8 +23,28 @@ class PlayerMetricsTracker(private val player: ExoPlayer) : AnalyticsListener {
         format: Format,
         decoderReuseEvaluation: DecoderReuseEvaluation?
     ) {
-        val bitrate = format.bitrate.takeIf { it > 0 } ?: 0
-        update(bitrateKbps = bitrate / 1000L)
+        val resolution = "${format.width}x${format.height}"
+        val codec = format.sampleMimeType ?: "Unknown"
+
+        var newBitrate = _metrics.value.bitrateKbps
+        if (format.bitrate > 0) {
+            newBitrate = format.bitrate / 1000L
+        }
+
+        update(
+            bitrateKbps = newBitrate,
+            resolution = resolution,
+            videoCodec = codec,
+        )
+    }
+
+    override fun onAudioInputFormatChanged(
+        eventTime: AnalyticsListener.EventTime,
+        format: Format,
+        decoderReuseEvaluation: DecoderReuseEvaluation?
+    ) {
+        val audioCodec = format.sampleMimeType ?: "Unknown"
+        update(audioCodec = audioCodec)
     }
 
     override fun onIsPlayingChanged(
@@ -35,22 +55,41 @@ class PlayerMetricsTracker(private val player: ExoPlayer) : AnalyticsListener {
     }
 
     override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
+        if (state == Player.STATE_BUFFERING) {
+            rebufferCount++
+            update()
+        }
+
         if (state == Player.STATE_READY && startTimeMs > 0) {
             val startupTime = System.currentTimeMillis() - startTimeMs
-            // measure and report player startup time once playback is ready
             println("PLAYER_METRICS: startup time: ${startupTime}ms")
             startTimeMs = 0
         }
     }
 
+    override fun onBandwidthEstimate(
+        eventTime: AnalyticsListener.EventTime,
+        totalLoadTimeMs: Int,
+        totalBytesLoaded: Long,
+        bitrateEstimate: Long
+    ) {
+        update(bitrateKbps = bitrateEstimate / 1000L)
+    }
+
     private fun update(
         isPlaying: Boolean = _metrics.value.isPlaying,
         bitrateKbps: Long = _metrics.value.bitrateKbps,
+        resolution: String = _metrics.value.resolution,
+        videoCodec: String = _metrics.value.videoCodec,
+        audioCodec: String = _metrics.value.audioCodec
     ) {
         _metrics.value = PlaybackMetrics(
             isPlaying = isPlaying,
             rebufferCount = rebufferCount,
             bitrateKbps = bitrateKbps,
+            resolution = resolution,
+            videoCodec = videoCodec,
+            audioCodec = audioCodec,
         )
     }
 

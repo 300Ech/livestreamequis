@@ -7,31 +7,72 @@ import com.evertschavez.livestreamequis.player.core.controller.VideoPlayerContro
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+data class PlayerUiState(
+    val playerState: PlayerState = PlayerState.Idle,
+    val metrics: PlaybackMetrics = PlaybackMetrics(),
+    val title: String = "",
+    val subtitle: String = "",
+    val isUiVisible: Boolean = true,
+)
 
 @UnstableApi
 class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel() {
+    private val _metadata = MutableStateFlow(Pair("", ""))
+    private val _isUiVisible = MutableStateFlow(true)
     val player = controller.getPlayer()
-    val metrics: StateFlow<PlaybackMetrics> = controller.metrics
 
-    val playerState: StateFlow<PlayerState> = controller.state
+    val uiState: StateFlow<PlayerUiState> = combine(
+        controller.state,
+        controller.metrics,
+        _metadata,
+        _isUiVisible
+    ) { state, metrics, metadata, isUiVisible ->
+        PlayerUiState(
+            playerState = state,
+            metrics = metrics,
+            title = metadata.first,
+            subtitle = metadata.second,
+            isUiVisible = isUiVisible
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PlayerUiState()
+    )
 
-    fun startPlayback(url: String, adTag: String?) {
+    fun initialize(url: String, adTag: String?, title: String, subtitle: String) {
+        _metadata.value = title to subtitle
         viewModelScope.launch {
-            controller.prepare(
-                StreamConfig(url = url, adTagUrl = adTag)
-            )
+            controller.prepare(StreamConfig(url = url, adTagUrl = adTag))
             controller.play()
         }
     }
 
-    fun pausePlayback() {
-        controller.pause()
+    fun toggleUi() {
+        _isUiVisible.value = !_isUiVisible.value
     }
 
-    fun resumePlayback() {
-        controller.play()
+    fun showUi() {
+        _isUiVisible.value = true
+    }
+
+    fun onPlayPauseClicked() {
+        if (uiState.value.playerState == PlayerState.Playing) {
+            controller.pause()
+        } else {
+            controller.play()
+        }
+    }
+
+    fun stopPlayback() {
+        controller.pause()
     }
 
     override fun onCleared() {
