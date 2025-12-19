@@ -76,7 +76,7 @@ class ExoPlayerController(private val context: Context) : VideoPlayerController 
             )
         }
 
-        monitor()
+        monitor(config.title ?: "Live Stream")
 
         player.setMediaItem(mediaItemBuilder.build())
         player.prepare()
@@ -105,12 +105,12 @@ class ExoPlayerController(private val context: Context) : VideoPlayerController 
         }
     }
 
-    fun monitor() {
+    fun monitor(videoTitle: String) {
         val customerPlayerData = CustomerPlayerData().apply {
             environmentKey = BuildConfig.MUX_ENV_KEY
         }
         val customerVideoData = CustomerVideoData().apply {
-            videoTitle = "My Live Stream"
+            this.videoTitle = videoTitle
         }
         val customerData = CustomerData(customerPlayerData, customerVideoData, null)
         muxStats = player.monitorWithMuxData(

@@ -5,4 +5,5 @@ data class StreamConfig(
     val isLive: Boolean = false,
     val lowLatency: Boolean = true,
     val adTagUrl: String? = null,
+    val title: String?,
 )

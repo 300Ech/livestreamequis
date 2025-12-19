@@ -1,4 +1,14 @@
 <resources>
-    <string name="app_name">LiveStreamEquis</string>
+    <string name="app_name" translatable="false">LiveStreamEquis</string>
     <string name="title_activity_main">MainActivity</string>
+
+    <string name="live_badge">LIVE</string>
+    <string name="back_button_desc">Navigate Back</string>
+    <string name="hide_ui">Hide UI</string>
+    <string name="show_ui">Show UI</string>
+
+    <string name="metric_codec">Codec</string>
+    <string name="metric_container">Container</string>
+    <string name="metric_audio">Audio</string>
+    <string name="metric_bitrate">Bitrate</string>
 </resources>

@@ -14,10 +14,10 @@ object Routes {
     const val PLAYER = "player/{encodedUrl}?adTag={encodedAdTag}&title={encodedTitle}&subtitle={encodedSubtitle}"
 
     fun getPlayerRoute(url: String, adTag: String?, title: String, subtitle: String): String {
-        val encodedUrl = java.net.URLEncoder.encode(url, "UTF-8")
-        val encodedAdTag = if (adTag != null) java.net.URLEncoder.encode(adTag, "UTF-8") else ""
-        val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-        val encodedSubtitle = java.net.URLEncoder.encode(subtitle, "UTF-8")
+        val encodedUrl = android.net.Uri.encode(url)
+        val encodedAdTag = if (adTag != null) android.net.Uri.encode(adTag) else ""
+        val encodedTitle = android.net.Uri.encode(title)
+        val encodedSubtitle = android.net.Uri.encode(subtitle)
 
         return "player/$encodedUrl?adTag=$encodedAdTag&title=$encodedTitle&subtitle=$encodedSubtitle"
     }

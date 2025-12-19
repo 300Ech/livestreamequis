@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -48,14 +49,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import androidx.mediarouter.app.MediaRouteButton
-import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
+import com.evertschavez.livestreamequis.R
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.google.android.gms.cast.framework.CastButtonFactory
 import kotlinx.coroutines.delay
@@ -74,8 +80,7 @@ fun PlayerScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val configuration = LocalConfiguration.current
-    val isLandscape =
-        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var showOverlayControls by remember { mutableStateOf(false) }
 
     LaunchedEffect(showOverlayControls) {
@@ -84,136 +89,146 @@ fun PlayerScreen(
             showOverlayControls = false
         }
     }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                viewModel.stopPlayback()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     DisposableEffect(Unit) {
         viewModel.initialize(url, adTag, title, subtitle)
         onDispose { viewModel.stopPlayback() }
     }
-
     Scaffold(
         containerColor = Color.Black,
         topBar = {
             if (state.isUiVisible && !isLandscape) {
-                TopAppBar(
-                    title = { Text("LiveStreamEquis", color = Color.White) },
-                    colors = topAppBarColors(
-                        containerColor = Color.Black
-                    ),
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                                tint = Color.White,
-                            )
-                        }
-                    },
-                    actions = { CastButton(modifier = Modifier.padding(end = 16.dp)) }
-                )
+                PlayerTopBar(title = stringResource(R.string.app_name), onBack = onBack)
             }
         }
     ) { paddingValues ->
         val realPadding =
             if (state.isUiVisible && !isLandscape) paddingValues else PaddingValues(0.dp)
-
         Column(
             modifier = Modifier
                 .padding(realPadding)
                 .fillMaxSize()
         ) {
-            Box(
+
+            VideoPlayerSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
                         if (isLandscape || !state.isUiVisible) Modifier.weight(1f) else Modifier.aspectRatio(
                             16f / 9f
                         )
-                    )
-                    .background(Color.Black)
-                    .clickable {
-                        showOverlayControls = !showOverlayControls
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                AndroidView(
-                    factory = { context ->
-                        PlayerView(context).apply {
-                            player = viewModel.player
-                            useController = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
+                    ),
+                player = viewModel.player,
+                isPlaying = state.playerState == PlayerState.Playing,
+                showOverlay = showOverlayControls,
+                isUiVisible = state.isUiVisible,
+                isLandscape = isLandscape,
+                onToggleUi = viewModel::toggleUi,
+                onToggleOverlay = { showOverlayControls = !showOverlayControls },
+                onBack = onBack,
+                onPlayPause = viewModel::onPlayPauseClicked,
+                playerState = state.playerState
+            )
+            if (state.isUiVisible && !isLandscape) {
+                MetricsSection(
+                    modifier = Modifier.weight(1f),
+                    state = state,
+                    onToggleUi = viewModel::toggleUi,
+                    onPlayPause = viewModel::onPlayPauseClicked
                 )
+            }
+        }
+    }
+}
 
-                if (state == PlayerState.Playing) {
-                    Text(
-                        text = "🔴 LIVE",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
+@Composable
+private fun VideoPlayerSection(
+    modifier: Modifier,
+    player: Player,
+    isPlaying: Boolean,
+    showOverlay: Boolean,
+    isUiVisible: Boolean,
+    isLandscape: Boolean,
+    onToggleUi: () -> Unit,
+    onToggleOverlay: () -> Unit,
+    onBack: () -> Unit,
+    onPlayPause: () -> Unit,
+    playerState: PlayerState,
+) {
+    Box(
+        modifier = modifier
+            .background(Color.Black)
+            .clickable(onClick = onToggleOverlay),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply { this.player = player; useController = false }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isPlaying) {
+            Text(
+                text = stringResource(R.string.live_badge),
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .background(Color.Red, RoundedCornerShape(4.dp))
+                    .padding(4.dp)
+            )
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showOverlay,
+            enter = fadeIn(), exit = fadeOut(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                if (!isUiVisible || isLandscape) {
+                    IconButton(
+                        onClick = onBack, Modifier
                             .align(Alignment.TopStart)
-                            .padding(8.dp)
-                            .background(Color.Red, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 4.dp)
-                    )
-                }
-
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showOverlayControls,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f))
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-                        }
-                        Box(modifier = Modifier.align(Alignment.Center)) {
-                            PlaybackControlButton(
-                                state = state.playerState,
-                                onPlay = viewModel::onPlayPauseClicked,
-                                onPause = viewModel::onPlayPauseClicked
-                            )
-                        }
+                            .padding(16.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.back_button_desc),
+                            tint = Color.White
+                        )
                     }
                 }
-            }
 
-            if (state.isUiVisible && !isLandscape) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(16.dp)
-                ) {
-                    Metrics(state.metrics)
+                Box(Modifier.align(Alignment.Center)) {
+                    PlaybackControlButton(playerState, onPlayPause, onPlayPause)
+                }
 
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    HorizontalDivider(color = Color.DarkGray)
-
-                    Row(
+                if (!isUiVisible) {
+                    OutlinedButton(
+                        onClick = onToggleUi,
+                        border = BorderStroke(1.dp, Color.White),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = { viewModel.toggleUi() },
-                            border = BorderStroke(1.dp, Color.White)
-                        ) {
-                            Text("Hide UI", color = Color.White)
-                        }
-                        PlaybackControlButton(
-                            state = state.playerState,
-                            onPlay = viewModel::onPlayPauseClicked,
-                            onPause = viewModel::onPlayPauseClicked,
-                        )
+                        Text(stringResource(R.string.show_ui), color = Color.White)
                     }
                 }
             }
@@ -221,21 +236,68 @@ fun PlayerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Metrics(metrics: PlaybackMetrics) {
-    StatRow("Time to encode", "04:14")
-    HorizontalDivider(color = Color.DarkGray)
+private fun PlayerTopBar(title: String, onBack: () -> Unit) {
+    TopAppBar(
+        title = { Text(title, color = Color.White) },
+        colors = topAppBarColors(
+            containerColor = Color.Black
+        ),
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(id = R.string.back_button_desc),
+                    tint = Color.White,
+                )
+            }
+        },
+        actions = { CastButton(modifier = Modifier.padding(end = 16.dp)) },
+    )
+}
 
-    StatRow("Codec", metrics.videoCodec)
-    HorizontalDivider(color = Color.DarkGray)
+@Composable
+private fun MetricsSection(
+    modifier: Modifier,
+    state: PlayerUiState,
+    onToggleUi: () -> Unit,
+    onPlayPause: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(state.title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Text(state.subtitle, style = MaterialTheme.typography.titleSmall, color = Color.LightGray)
 
-    StatRow("Container", metrics.videoFormat)
-    HorizontalDivider(color = Color.DarkGray)
+        Spacer(Modifier.height(16.dp))
 
-    StatRow("Audio", metrics.audioCodec)
-    HorizontalDivider(color = Color.DarkGray)
+        StatRow(stringResource(R.string.metric_codec), state.metrics.videoCodec)
+        HorizontalDivider(color = Color.DarkGray)
+        StatRow(stringResource(R.string.metric_bitrate), "${state.metrics.bitrateKbps} kbps")
+        HorizontalDivider(color = Color.DarkGray)
+        StatRow(stringResource(R.string.metric_container), state.metrics.videoFormat)
+        HorizontalDivider(color = Color.DarkGray)
+        StatRow(stringResource(R.string.metric_audio), state.metrics.audioCodec)
+        HorizontalDivider(color = Color.DarkGray)
 
-    StatRow("Bitrate", "${metrics.bitrateKbps} kbps")
+        Spacer(Modifier.weight(1f))
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(onClick = onToggleUi, border = BorderStroke(1.dp, Color.White)) {
+                Text(stringResource(R.string.hide_ui), color = Color.White)
+            }
+            PlaybackControlButton(state.playerState, onPlayPause, onPlayPause)
+        }
+    }
 }
 
 @Composable

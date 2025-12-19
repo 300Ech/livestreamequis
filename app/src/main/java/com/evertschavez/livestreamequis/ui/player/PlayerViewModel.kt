@@ -7,6 +7,7 @@ import com.evertschavez.livestreamequis.player.core.controller.VideoPlayerContro
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.evertschavez.livestreamequis.player.domain.model.StreamConfig
+import com.evertschavez.livestreamequis.util.formatDuration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +42,7 @@ class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel
             title = metadata.first,
             subtitle = metadata.second,
             isUiVisible = isUiVisible,
-            duration = formatDuration(controller.getPlayer().duration),
+            duration = controller.getPlayer().duration.formatDuration(),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -52,7 +53,7 @@ class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel
     fun initialize(url: String, adTag: String?, title: String, subtitle: String) {
         _metadata.value = title to subtitle
         viewModelScope.launch {
-            controller.prepare(StreamConfig(url = url, adTagUrl = adTag))
+            controller.prepare(StreamConfig(url = url, adTagUrl = adTag, title = title))
             controller.play()
         }
     }
@@ -80,13 +81,5 @@ class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel
     override fun onCleared() {
         super.onCleared()
         controller.release()
-    }
-
-    private fun formatDuration(millis: Long): String {
-        if (millis < 0) return "--:--"
-        val totalSeconds = millis / 1000
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        return String.format("%02d:%02d", minutes, seconds)
     }
 }
