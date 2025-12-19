@@ -5,5 +5,6 @@ sealed class PlayerState {
     object Buffering: PlayerState()
     object Playing: PlayerState()
     object Paused: PlayerState()
+    object Ended: PlayerState()
     data class Error(val message: String): PlayerState()
 }

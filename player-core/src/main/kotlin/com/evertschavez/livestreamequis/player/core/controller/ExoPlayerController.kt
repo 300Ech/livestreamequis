@@ -121,10 +121,12 @@ class ExoPlayerController(private val context: Context) : VideoPlayerController 
     }
 
     private fun updateState() {
-        _state.value = when {
-            player.playbackState == Player.STATE_BUFFERING -> PlayerState.Buffering
-            player.isPlaying -> PlayerState.Playing
-            player.playbackState == Player.STATE_READY -> PlayerState.Paused // Está listo pero no "playing"
+        _state.value = when (player.playbackState) {
+            Player.STATE_BUFFERING -> PlayerState.Buffering
+            Player.STATE_ENDED -> PlayerState.Ended
+            Player.STATE_READY -> {
+                if (player.isPlaying) PlayerState.Playing else PlayerState.Paused
+            }
             else -> PlayerState.Idle
         }
     }

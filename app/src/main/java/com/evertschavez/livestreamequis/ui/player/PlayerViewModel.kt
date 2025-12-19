@@ -20,6 +20,7 @@ data class PlayerUiState(
     val title: String = "",
     val subtitle: String = "",
     val isUiVisible: Boolean = true,
+    val duration: String = "00:00",
 )
 
 @UnstableApi
@@ -39,7 +40,8 @@ class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel
             metrics = metrics,
             title = metadata.first,
             subtitle = metadata.second,
-            isUiVisible = isUiVisible
+            isUiVisible = isUiVisible,
+            duration = formatDuration(controller.getPlayer().duration),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -78,5 +80,13 @@ class PlayerViewModel(private val controller: VideoPlayerController) : ViewModel
     override fun onCleared() {
         super.onCleared()
         controller.release()
+    }
+
+    private fun formatDuration(millis: Long): String {
+        if (millis < 0) return "--:--"
+        val totalSeconds = millis / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
     }
 }

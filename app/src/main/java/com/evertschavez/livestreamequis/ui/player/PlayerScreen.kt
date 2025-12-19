@@ -1,7 +1,11 @@
 package com.evertschavez.livestreamequis.ui.player
 
+import android.content.res.Configuration
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,13 +37,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +58,7 @@ import androidx.mediarouter.app.MediaRouteButton
 import com.evertschavez.livestreamequis.player.domain.metrics.PlaybackMetrics
 import com.evertschavez.livestreamequis.player.domain.model.PlayerState
 import com.google.android.gms.cast.framework.CastButtonFactory
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -65,6 +73,17 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val configuration = LocalConfiguration.current
+    val isLandscape =
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var showOverlayControls by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showOverlayControls) {
+        if (showOverlayControls) {
+            delay(3000)
+            showOverlayControls = false
+        }
+    }
 
     DisposableEffect(Unit) {
         viewModel.initialize(url, adTag, title, subtitle)
@@ -74,7 +93,7 @@ fun PlayerScreen(
     Scaffold(
         containerColor = Color.Black,
         topBar = {
-            if (state.isUiVisible) {
+            if (state.isUiVisible && !isLandscape) {
                 TopAppBar(
                     title = { Text("LiveStreamEquis", color = Color.White) },
                     colors = topAppBarColors(
@@ -94,7 +113,8 @@ fun PlayerScreen(
             }
         }
     ) { paddingValues ->
-        val realPadding = if (state.isUiVisible) paddingValues else PaddingValues(0.dp)
+        val realPadding =
+            if (state.isUiVisible && !isLandscape) paddingValues else PaddingValues(0.dp)
 
         Column(
             modifier = Modifier
@@ -105,10 +125,14 @@ fun PlayerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
-                        if (state.isUiVisible) Modifier.aspectRatio(16f / 9f)
-                        else Modifier.weight(1f)
+                        if (isLandscape || !state.isUiVisible) Modifier.weight(1f) else Modifier.aspectRatio(
+                            16f / 9f
+                        )
                     )
-                    .background(Color.Black),
+                    .background(Color.Black)
+                    .clickable {
+                        showOverlayControls = !showOverlayControls
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 AndroidView(
@@ -135,20 +159,31 @@ fun PlayerScreen(
                     )
                 }
 
-                if (!state.isUiVisible) {
-                    Button(
-                        onClick = { viewModel.showUi() },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(32.dp)
-                            .alpha(0.5f)
-                    ) {
-                        Text("Show UI")
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showOverlayControls,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f))
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                        }
+                        Box(modifier = Modifier.align(Alignment.Center)) {
+                            PlaybackControlButton(
+                                state = state.playerState,
+                                onPlay = viewModel::onPlayPauseClicked,
+                                onPause = viewModel::onPlayPauseClicked
+                            )
+                        }
                     }
                 }
             }
 
-            if (state.isUiVisible) {
+            if (state.isUiVisible && !isLandscape) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -243,7 +278,7 @@ fun PlaybackControlButton(
                 action = onPause
             }
 
-            PlayerState.Idle, PlayerState.Paused -> {
+            PlayerState.Idle, PlayerState.Paused, PlayerState.Ended -> {
                 icon = Icons.Filled.PlayArrow
                 action = onPlay
             }
